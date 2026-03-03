@@ -1,0 +1,89 @@
+---   
+    - name: Run only on Ubuntu hosts
+      assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+        fail_msg: "This playbook is intended to run on Ubuntu hosts only."
+
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - apache2
+          - build-essential
+          - libgd-dev
+          - openssl
+          - libssl-dev
+          - unzip
+          - wget
+          - php
+          - libapache2-mod-php
+          - daemon
+          - autoconf
+          - gcc
+          - make
+          - libperl-dev
+          - libpng-dev
+          - libjpeg-dev
+          - libmcrypt-dev
+        state: present
+
+    - name: Create nagios user and group
+      user:
+        name: nagios
+        create_home: yes
+        shell: /bin/bash
+
+    - name: Create nagcmd group
+      group:
+        name: nagcmd
+        state: present
+
+    - name: Add nagios and www-data to nagcmd group
+      user:
+        name: "{{ item }}"
+        groups: nagcmd
+        append: yes
+      loop:
+        - nagios
+        - www-data
+
+    - name: Download Nagios Core source
+      get_url:
+        url: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.5.10.tar.gz
+        dest: /tmp/nagios.tar.gz
+
+    - name: Extract Nagios Core
+      unarchive:
+        src: /tmp/nagios.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Compile and install Nagios
+      shell: |
+        cd /tmp/nagios-4.5.10
+        ./configure --with-nagios-group=nagios --with-command-group=nagcmd
+        make all
+        make install
+        make install-init
+        make install-commandmode
+        make install-config
+        make install-webconf
+
+    - name: Enable Apache rewrite and cgi modules
+      shell: |
+        a2enmod rewrite
+        a2enmod cgi
+        systemctl restart apache2
+
+    - name: Set Nagios admin password
+      shell: htpasswd -b -c /usr/local/nagios/etc/htpasswd.users christian 123
+
+    - name: Start Nagios service
+      systemd:
+        name: nagios
+        enabled: yes
+        state: started

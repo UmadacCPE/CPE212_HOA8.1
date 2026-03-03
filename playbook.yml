@@ -1,0 +1,8 @@
+---
+- name: Install Nagios Core on Servers
+  hosts: all
+  become: yes
+
+  roles:
+    - Install_Nagios_Ubuntu
+    - Install_Nagios_CentOS

@@ -1,0 +1,94 @@
+---
+    - name: Run only on CentOS hosts
+      assert:
+        that:
+          - ansible_distribution == "CentOS"
+        fail_msg: "This playbook is intended to run on CentOS hosts only."
+
+    - name: Ensure EPEL repository is enabled
+      yum:
+        name: epel-release
+        state: present
+
+    - name: Install required packages
+      yum:
+        name:
+          - httpd
+          - gcc
+          - glibc
+          - glibc-common
+          - wget
+          - unzip
+          - make
+          - gettext
+          - automake
+          - autoconf
+          - openssl
+          - openssl-devel
+          - net-snmp
+          - net-snmp-utils
+          - gd
+          - gd-devel
+          - perl
+          - php
+          - php-cli
+          - libjpeg-devel
+          - libpng-devel
+        state: present
+
+    - name: Create nagios user and group
+      user:
+        name: nagios
+        create_home: yes
+        shell: /bin/bash
+
+    - name: Create nagcmd group
+      group:
+        name: nagcmd
+        state: present
+
+    - name: Add nagios and apache to nagcmd group
+      user:
+        name: "{{ item }}"
+        groups: nagcmd
+        append: yes
+      loop:
+        - nagios
+        - apache
+
+    - name: Download Nagios Core source
+      get_url:
+        url: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.5.10.tar.gz
+        dest: /tmp/nagios.tar.gz
+
+    - name: Extract Nagios Core
+      unarchive:
+        src: /tmp/nagios.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Compile and install Nagios
+      shell: |
+        cd /tmp/nagios-4.5.10
+        ./configure --with-nagios-group=nagios --with-command-group=nagcmd
+        make all
+        make install
+        make install-init
+        make install-commandmode
+        make install-config
+        make install-webconf
+
+    - name: Set Nagios admin password
+      shell: htpasswd -b -c /usr/local/nagios/etc/htpasswd.users christian 123
+
+    - name: Enable and start Apache
+      systemd:
+        name: httpd
+        enabled: yes
+        state: started
+
+    - name: Enable and start Nagios
+      systemd:
+        name: nagios
+        enabled: yes
+        state: started
