@@ -1,2 +1,3 @@
 ---
-# vars file for install Nagios
+    nagios_admin_user: christian
+    nagios_admin_password: "123"

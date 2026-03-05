@@ -1,5 +1,5 @@
 ---
-- name: Install Nagios Core on Servers
+- name: Install Nagios Core
   hosts: all
   become: yes
 

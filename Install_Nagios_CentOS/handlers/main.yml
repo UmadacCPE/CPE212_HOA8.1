@@ -1,2 +1,6 @@
 ---
-# handlers file for Install_Nagios_CentOS
+    - name: Restart Apache
+      service:
+        name: httpd
+        state: restarted
+      when: ansible_distribution == "CentOS"

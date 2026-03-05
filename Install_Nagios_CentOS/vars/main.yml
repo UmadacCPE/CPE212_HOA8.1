@@ -1,2 +1,3 @@
 ---
-# vars file for Install_Nagios_CentOS
+    nagios_admin_user: christian
+    nagios_admin_password: "123"

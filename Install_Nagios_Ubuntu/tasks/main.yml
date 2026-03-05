@@ -1,46 +1,38 @@
----   
-    - name: Run only on Ubuntu hosts
-      assert:
-        that:
-          - ansible_distribution == "Ubuntu"
-        fail_msg: "This playbook is intended to run on Ubuntu hosts only."
-
-    - name: Update apt package index
+---
+    - name: Update apt cache
       apt:
         update_cache: yes
+      when: ansible_distribution == "Ubuntu"
 
     - name: Install required packages
       apt:
         name:
           - apache2
+          - php
+          - libapache2-mod-php
+          - wget
+          - unzip
           - build-essential
           - libgd-dev
           - openssl
           - libssl-dev
-          - unzip
-          - wget
-          - php
-          - libapache2-mod-php
           - daemon
-          - autoconf
-          - gcc
-          - make
-          - libperl-dev
-          - libpng-dev
-          - libjpeg-dev
-          - libmcrypt-dev
+          - curl
         state: present
+      when: ansible_distribution == "Ubuntu"
 
     - name: Create nagios user and group
       user:
         name: nagios
         create_home: yes
         shell: /bin/bash
+      when: ansible_distribution == "Ubuntu"
 
     - name: Create nagcmd group
       group:
         name: nagcmd
         state: present
+      when: ansible_distribution == "Ubuntu"
 
     - name: Add nagios and www-data to nagcmd group
       user:
@@ -50,21 +42,24 @@
       loop:
         - nagios
         - www-data
+      when: ansible_distribution == "Ubuntu"
 
     - name: Download Nagios Core source
       get_url:
-        url: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.5.10.tar.gz
+        url: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.4.14.tar.gz
         dest: /tmp/nagios.tar.gz
+      when: ansible_distribution == "Ubuntu"
 
     - name: Extract Nagios Core
       unarchive:
         src: /tmp/nagios.tar.gz
         dest: /tmp/
         remote_src: yes
+      when: ansible_distribution == "Ubuntu"
 
     - name: Compile and install Nagios
       shell: |
-        cd /tmp/nagios-4.5.10
+        cd /tmp/nagios-4.4.14
         ./configure --with-nagios-group=nagios --with-command-group=nagcmd
         make all
         make install
@@ -72,18 +67,25 @@
         make install-commandmode
         make install-config
         make install-webconf
+      args:
+        creates: /usr/local/nagios/bin/nagios
+      when: ansible_distribution == "Ubuntu"
 
-    - name: Enable Apache rewrite and cgi modules
-      shell: |
-        a2enmod rewrite
-        a2enmod cgi
-        systemctl restart apache2
+    - name: Set up Nagios admin user
+      shell: htpasswd -b -c /usr/local/nagios/etc/htpasswd.users {{ nagios_admin_user }} {{ nagios_admin_password }}
+      args:
+        creates: /usr/local/nagios/etc/htpasswd.users
+      when: ansible_distribution == "Ubuntu"
 
-    - name: Set Nagios admin password
-      shell: htpasswd -b -c /usr/local/nagios/etc/htpasswd.users christian 123
+    - name: Enable Apache modules
+      shell: a2enmod rewrite cgi
+      notify: Restart Apache
+      when: ansible_distribution == "Ubuntu"
 
     - name: Start Nagios service
-      systemd:
+      service:
         name: nagios
-        enabled: yes
         state: started
+        enabled: yes
+      when: ansible_distribution == "Ubuntu"
+
